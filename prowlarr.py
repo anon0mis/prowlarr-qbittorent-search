@@ -109,6 +109,7 @@ class prowlarr:
     api_key = CONFIG_DATA['api_key']
     thread_count = CONFIG_DATA['thread_count']
     result_limit = CONFIG_DATA['result_limit']
+    tracker_first = CONFIG_DATA['tracker_first']
     
     supported_categories = {
         'all': None,
@@ -160,7 +161,7 @@ class prowlarr:
         else:
             self.search_prowlarr_indexer(what, category, 'all')
 
-    def get_prowlarr_indexers(self, what: str) -> List[str]:
+    def get_prowlarr_indexers(self, what: str) -> List[Dict[str, Any]]:
         params = urlencode([
             ('apikey', self.api_key),
         ])
@@ -174,10 +175,11 @@ class prowlarr:
         indexer_results = json.loads(response)
         indexers = []
         for indexer in indexer_results:
-            indexers.append(str(indexer['id']))
+            if indexer.get('enable'):
+                indexers.append(indexer)
         return indexers
 
-    def search_prowlarr_indexer(self, what: str, category: Union[List[str], None], indexer_id: str) -> None:
+    def search_prowlarr_indexer(self, what: str, category: Union[List[str], None], indexer: Dict[str, Any] = None) -> None:
         def toStr(s: Union[str, None]) -> str:
             return s if s is not None else ''
 
@@ -188,8 +190,8 @@ class prowlarr:
             ('limit', self.result_limit)
         ]
 
-        if indexer_id is not 'all':
-            params_tmp.append(('indexerIds', indexer_id))
+        if indexer is not None:
+            params_tmp.append(('indexerIds', indexer.get('id')))
         
         if category is not None:
             for cat in category:
@@ -199,7 +201,7 @@ class prowlarr:
         prowlarr_url = f"{self.url}/api/v1/search?{params}"
         response = self.get_response(prowlarr_url)
         if response is None:
-            self.handle_error("connection error for indexer: " + indexer_id, what)
+            self.handle_error("connection error for indexer: " + indexer.get('name'), what)
             return
 
         # process search results
@@ -214,23 +216,20 @@ class prowlarr:
                 continue
 
             tracker = result.get('indexer')
-            if CONFIG_DATA['tracker_first']:
+            if self.tracker_first:
                 res['name'] = f"[{tracker}] {title}"
             else:
                 res['name'] = f"{title} [{tracker}]"
 
-            link = None
             if 'downloadUrl' in result:
-                link = str(result.get('downloadUrl'))
+                res['link'] = str(result.get('downloadUrl'))
             elif 'magnetUrl' in result:
-                link = str(result.get('magnetUrl'))
+                res['link'] = str(result.get('magnetUrl'))
             else:
                 continue
 
-            if link.startswith('http'):
-                link = self.resolve_url(link)
-
-            res['link'] = link
+            if res['link'].startswith('http'):
+                res['link'] = self.resolve_url(res['link'])
 
             res['size'] = str(result.get('size'))
             res['size'] = -1 if res['size'] is None else (toStr(res['size']) + ' B')
@@ -300,9 +299,11 @@ class prowlarr:
                 dictionary[key] = dictionary[key].replace('|', '%7C')
         return dictionary
     
+    # Dirty hack to resolve URL after redirects, but it works
     def resolve_url(self, query: str) -> str:
         try:
-            urllib.request.urlopen(query)
+            res = urllib.request.urlopen(query)
+            return res.url
         except urllib.error.HTTPError as e:
            return e.url
     
