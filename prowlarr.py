@@ -1,5 +1,5 @@
 # prowlarr-qbittorent-search
-# VERSION: 1.0
+# VERSION: 1.1
 # AUTHORS: anon0mis (https://github.com/anon0mis)
 # CREDITS: 
 #   Based on https://github.com/qbittorrent/search-plugins/blob/master/nova3/engines/jackett.py 
