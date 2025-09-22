@@ -46,6 +46,7 @@ jobs:
             --exclude='.git*' \
             --exclude='screenshot.png' \
             --exclude='README.md' \
+            --exclude='release/' \
             ./ ./release/
           cd release
           zip -r "../${REPO_NAME}-${VERSION}.zip" ./*
