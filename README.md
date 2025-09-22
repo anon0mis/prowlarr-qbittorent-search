@@ -43,20 +43,22 @@ You can customize the plugin by editing the `prowlarr.json` file:
     "thread_count": 20,
     "tracker_first": false,
     "url": "http://127.0.0.1:9696",
-    "result_limit": 500
+    "result_limit": 500,
+    "show_disabled_indexers": true
 }
 ```
 
 
 ### ⚙️ Configuration Options
 
-| Key            | Default Value           | Description                                                                 |
-|----------------|-------------------------|-----------------------------------------------------------------------------|
-| `api_key`      | `YOUR_API_KEY_HERE`     | Your Prowlarr API Key                                                       |
-| `thread_count` | `20`                    | Maximum number of threads (indexers) to search at a time                    |
-| `tracker_first`| `false`                 | Display `[TrackerName]` in the result title as a prefix, or suffix if `true`|
-| `url`          | `http://127.0.0.1:9696` | URL for your Prowlarr instance                                              |
-| `result_limit` | `500`                   | Maximum number of results to return per tracker                             |
+| Key                      | Default Value           | Description                                                                 |
+|--------------------------|-------------------------|-----------------------------------------------------------------------------|
+| `api_key`                | `YOUR_API_KEY_HERE`     | Your Prowlarr API Key                                                       |
+| `thread_count`           | `20`                    | Maximum number of threads (indexers/trackers) to search at a time           |
+| `tracker_first`          | `false`                 | Display `[TrackerName]` in the result title as a prefix, or suffix if `true`|
+| `url`                    | `http://127.0.0.1:9696` | URL for your Prowlarr instance                                              |
+| `result_limit`           | `500`                   | Maximum number of results to return per tracker                             |
+| `show_disabled_indexers` | `true`                  | Show error messages for disabled indexers                                   |
 
 
 ## 📚 Requirements

@@ -3,5 +3,6 @@
     "thread_count": 20,
     "tracker_first": false,
     "url": "http://127.0.0.1:9696",
-    "result_limit": 500
+    "result_limit": 500,
+    "show_disabled_indexers": true
 }

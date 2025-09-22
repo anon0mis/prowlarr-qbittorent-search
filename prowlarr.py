@@ -4,7 +4,7 @@
 # CREDITS: 
 #   Based on https://github.com/qbittorrent/search-plugins/blob/master/nova3/engines/jackett.py 
 #   By Diego de las Heras (ngosang@hotmail.es) 
-#   CONTRIBUTORS:   ukharley
+#   AND CONTRIBUTORS:   ukharley
 #                   hannsen (github.com/hannsen)
 #                   Alexander Georgievskiy <galeksandrp@gmail.com>
 
@@ -58,11 +58,12 @@ proxy_manager.enable_proxy(False)  # off by default
 CONFIG_FILE = 'prowlarr.json'
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), CONFIG_FILE)
 CONFIG_DATA: Dict[str, Any] = {
-    'api_key': 'YOUR_API_KEY_HERE',  # Prowlarr API Key
-    'url': 'http://127.0.0.1:9696',  # Prowlarr URL
-    'tracker_first': False,          # (False/True) Add tracker name to beginning or end of search result
-    'thread_count': 20,              # Number of threads to use for HTTP requests
-    'result_limit': 500,             # Max number of results to request from each indexer
+    'api_key': 'YOUR_API_KEY_HERE', # Prowlarr API Key
+    'url': 'http://127.0.0.1:9696', # Prowlarr URL
+    'tracker_first': False,         # Add tracker name to beginning or end of search result
+    'thread_count': 20,             # Number of threads to use for HTTP requests
+    'result_limit': 500,            # Max number of results to request from each indexer
+    'show_disabled_indexers': True  # Show error messages for disabled indexers
 }
 PRINTER_THREAD_LOCK = Lock()
 
@@ -93,6 +94,10 @@ def load_configuration() -> None:
         CONFIG_DATA['result_limit'] = 500
         save_configuration()
 
+    if 'show_disabled_indexers' not in CONFIG_DATA:
+        CONFIG_DATA['show_disabled_indexers'] = True
+        save_configuration()
+
 
 def save_configuration() -> None:
     with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
@@ -110,7 +115,8 @@ class prowlarr:
     thread_count = CONFIG_DATA['thread_count']
     result_limit = CONFIG_DATA['result_limit']
     tracker_first = CONFIG_DATA['tracker_first']
-    
+    show_disabled_indexers = CONFIG_DATA['show_disabled_indexers']
+
     supported_categories = {
         'all': None,
         'anime': ['5070'],
@@ -122,7 +128,7 @@ class prowlarr:
         'tv': ['5000'],
     }
 
-    url_cache: Dict[str, Any] = {}
+    disabled_indexers: List[str] = []
 
     def download_torrent(self, download_url: str) -> None:
         # fix for some indexers with magnet link inside .torrent file
@@ -142,12 +148,12 @@ class prowlarr:
 
         # check for malformed configuration
         if 'malformed' in CONFIG_DATA:
-            self.handle_error("malformed configuration file", what)
+            self.handle_error("Malformed configuration file", what)
             return
 
         # check api_key
         if self.api_key == "YOUR_API_KEY_HERE":
-            self.handle_error("api key error", what)
+            self.handle_error("API key error", what)
             return
 
         # search in Prowlarr API
@@ -166,10 +172,19 @@ class prowlarr:
             ('apikey', self.api_key),
         ])
 
+        indexer_status_url = f"{self.url}/api/v1/indexerstatus?{params}"
+        status_response = self.get_response(indexer_status_url)
+        if status_response is None:
+            self.handle_error("Connection error getting indexer statuses", what)
+            return []
+        
+        status_results = json.loads(status_response)
+        self.disabled_indexers = [status.get('indexerId') for status in status_results]
+
         indexer_url = f"{self.url}/api/v1/indexer?{params}"
         response = self.get_response(indexer_url)
         if response is None:
-            self.handle_error("connection error getting indexer list", what)
+            self.handle_error("Connection error getting indexer list", what)
             return []
         # process results
         indexer_results = json.loads(response)
@@ -182,6 +197,11 @@ class prowlarr:
     def search_prowlarr_indexer(self, what: str, category: Union[List[str], None], indexer: Dict[str, Any] = None) -> None:
         def toStr(s: Union[str, None]) -> str:
             return s if s is not None else ''
+        
+        if indexer.get('id') in self.disabled_indexers:
+            if self.show_disabled_indexers:
+                self.handle_error(f"Indexer '{indexer.get('name')}' is disabled or has errors", what)
+            return
 
         # prepare Prowlarr url
         params_tmp = [
@@ -201,7 +221,7 @@ class prowlarr:
         prowlarr_url = f"{self.url}/api/v1/search?{params}"
         response = self.get_response(prowlarr_url)
         if response is None:
-            self.handle_error("connection error for indexer: " + indexer.get('name'), what)
+            self.handle_error("Connection error for indexer: " + indexer.get('name'), what)
             return
 
         # process search results
