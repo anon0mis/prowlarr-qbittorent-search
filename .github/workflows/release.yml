@@ -1,0 +1,61 @@
+name: Create Release Archive
+
+on:
+  push:
+    tags:
+      - 'v*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Needed for full git history
+
+      - name: Set version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Get repository name
+        run: echo "REPO_NAME=$(basename $GITHUB_REPOSITORY)" >> $GITHUB_ENV
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ || echo "")
+          echo "PREV_TAG=$PREV_TAG" >> $GITHUB_ENV
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          if [ -z "$PREV_TAG" ]; then
+            LOG=$(git log --pretty=format:"- %s" $VERSION)
+          else
+            LOG=$(git log --pretty=format:"- %s" $PREV_TAG..$VERSION)
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$LOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create zip archive
+        run: |
+          mkdir release
+          rsync -av \
+            --exclude='.git*' \
+            --exclude='screenshot.png' \
+            --exclude='README.md' \
+            ./ ./release/
+          cd release
+          zip -r "../${REPO_NAME}-${VERSION}.zip" ./*
+
+      - name: Upload release asset with changelog
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: "${{ env.VERSION }}"
+          body: ${{ env.CHANGELOG }}
+          files: "${{ env.REPO_NAME }}-${{ env.VERSION }}.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
