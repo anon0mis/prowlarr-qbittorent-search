@@ -1,9 +1,8 @@
 name: Create Release
 
 on:
-  push:
-    tags:
-      - 'v*.*'
+  release:
+    types: [created]
 
 jobs:
 
@@ -13,11 +12,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Extract version from tag
+      - name: Extract version from release title
         id: get_version
         run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          CODE_VERSION="${TAG_NAME#v}"
+          RELEASE_TITLE="${{ github.event.release.name }}"
+          CODE_VERSION="${RELEASE_TITLE#v}"
           echo "CODE_VERSION=$CODE_VERSION" >> $GITHUB_ENV
 
       - name: Update version in prowlarr.py
@@ -26,23 +25,28 @@ jobs:
 
       - name: Commit version update
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "anon0mis"
+          git config user.email "anon_0mis@protonmail.com"
           git add prowlarr.py
-          git commit -m "Update version to $CODE_VERSION from release tag ${{ github.event.release.tag_name }}"
+          git commit -m "Bump version $CODE_VERSION for release ${{ github.event.release.name }}"
           git push
+
+      - name: Create tag from release title
+        run: |
+          git tag "v$CODE_VERSION"
+          git push origin "v$CODE_VERSION"
 
   build:
     runs-on: ubuntu-latest
-
+    needs: update-version
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Needed for full git history
+          fetch-depth: 0
 
-      - name: Set version from tag
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      - name: Set version from release title
+        run: echo "VERSION=${{ github.event.release.name }}" >> $GITHUB_ENV
 
       - name: Get repository name
         run: echo "REPO_NAME=$(basename $GITHUB_REPOSITORY)" >> $GITHUB_ENV
